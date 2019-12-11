@@ -1,0 +1,69 @@
+---
+title: "Iceland"
+author: "Michael Gurkov"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+```{r load_libraries}
+
+library(tidyverse)
+
+library(Quandl)
+
+library(scales)
+
+```
+
+
+
+```{r Import_data}
+
+
+Quandl.api_key("Vd7t2TFEjCvipyX7zPmh")
+
+gdp = Quandl("ODA/ISL_NGDPDPC")
+
+df = read.csv(paste0("C:\\Users\\Misha\\Documents\\Data\\World",
+                     " Bank\\GDP_per_capita_panel.csv"),
+              stringsAsFactors = FALSE)
+
+df = df %>% 
+  filter(Country.Name == "Iceland") %>% 
+  select(Country.Name, starts_with("X")) %>% 
+  rename(Country = Country.Name) %>% 
+  rename_at(.vars = vars(starts_with("X")),
+            .funs = list(~str_extract(.,"\\d+"))) %>% 
+  gather(key = Year,value = GDP_per_capita, - Country) %>% 
+  mutate(GDP_per_capita = as.numeric(GDP_per_capita)) %>% 
+  filter(complete.cases(.))
+  
+
+```
+
+
+```{r plot_gdp}
+
+ggplot(df, aes(x = Year, y = GDP_per_capita, group = 1)) + 
+  geom_line() + 
+  labs(x = "", y = "USD (2010)", title = "Iceland's GDP per capita") + 
+  theme_bw() + 
+  theme(plot.title = element_text(hjust = 0.5),
+        axis.text.x = element_text(angle = 90))
+
+
+ggplot(gdp, aes(x = Date, y = Value)) + 
+  geom_line() + 
+  labs(x = "", y = "USD (2010)", title = "Iceland's GDP per capita") + 
+  theme_bw() + 
+  theme(plot.title = element_text(hjust = 0.5),
+        axis.text.x = element_text(angle = 90))
+
+
+
+
+```
+
