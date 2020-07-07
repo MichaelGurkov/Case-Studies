@@ -1,12 +1,20 @@
 ---
 title: "Iceland"
 author: "Michael Gurkov"
-output: pdf_document
+# date: "August 15, 2018"
+classoption: t
+output:
+  beamer_presentation:
+    keep_tex: true
+    includes:
+      in_header: C:\\Users\\Misha\\Documents\\BeamerPresentationPreamble.tex
+    latex_engine: xelatex
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 ```
+
 
 ```{r load_libraries}
 
@@ -14,54 +22,135 @@ library(tidyverse)
 
 library(Quandl)
 
+Quandl.api_key("Vd7t2TFEjCvipyX7zPmh")
+
 library(scales)
 
 ```
 
 
+```{r set_parameters}
 
-```{r Import_data}
+syms = list(gdp_pc = list(constant_2000_USD = "NY_GDP_PCAP_KD",
+                          constant_LCU = "NY_GDP_PCAP_KN",
+                          current_USD = "NY_GDP_PCAP_CD",
+                          constant_2005_PPP = "NY_GDP_PCAP_PP_KD",
+                          current_PPP = "NY_GDP_PCAP_PP_CD"),
+            inflation = list(cpi = "FP_CPI_TOTL_ZG",
+                             gdp_deflator = "NY_GDP_DEFL_KD_ZG"),
+            interest = list(deposit = "FR_INR_DPST",
+                            lending = "FR_INR_LEND",
+                            real = "FR_INR_RINR"),
+            exchange = list(exchange_rate = "PA_NUS_FCRF",
+                            reer_index = "PX_REX_REER"),
+            unemployment = list(total = "SL_UEM_TOTL_ZS"))
 
 
-Quandl.api_key("Vd7t2TFEjCvipyX7zPmh")
-
-gdp = Quandl("ODA/ISL_NGDPDPC")
-
-df = read.csv(paste0("C:\\Users\\Misha\\Documents\\Data\\World",
-                     " Bank\\GDP_per_capita_panel.csv"),
-              stringsAsFactors = FALSE)
-
-df = df %>% 
-  filter(Country.Name == "Iceland") %>% 
-  select(Country.Name, starts_with("X")) %>% 
-  rename(Country = Country.Name) %>% 
-  rename_at(.vars = vars(starts_with("X")),
-            .funs = list(~str_extract(.,"\\d+"))) %>% 
-  gather(key = Year,value = GDP_per_capita, - Country) %>% 
-  mutate(GDP_per_capita = as.numeric(GDP_per_capita)) %>% 
-  filter(complete.cases(.))
-  
 
 ```
 
 
+```{r Import_data, cache=TRUE}
+
+extract_indicators_data = function(temp_list){
+  
+  df_list = lapply(names(temp_list), function(temp_name){
+    
+    temp_df = Quandl(paste0("WWDI/ISL_",temp_list[[temp_name]]))
+    
+    temp_df = temp_df %>% 
+    rename(!!sym(temp_name) := Value)
+    
+    return(temp_df)
+  })
+    
+  return(df_list)
+
+                  }
+
+# The data is imported from WWDI
+
+data_list = lapply(syms, extract_indicators_data)
+
+rm(extract_indicators_data)
+
+
+```
+
+
+# Banking system structure
+
+Iceland had a very concentrated structure. Three major banks:
+
+\begin{itemize}
+  \item
+  Kaupthing
+  \item
+  Landsbanki
+  \item
+  Glitnir
+\end{itemize}
+
+# GDP
+
 ```{r plot_gdp}
 
-ggplot(df, aes(x = Year, y = GDP_per_capita, group = 1)) + 
+ggplot(data_list$gdp_pc %>% 
+  reduce(full_join, by = "Date") %>% 
+  gather(key = Category,value = GDP_pc, -Date),
+  aes(x = Date, y = GDP_pc)) + 
   geom_line() + 
-  labs(x = "", y = "USD (2010)", title = "Iceland's GDP per capita") + 
-  theme_bw() + 
-  theme(plot.title = element_text(hjust = 0.5),
-        axis.text.x = element_text(angle = 90))
+  facet_wrap(~Category,scales = "free") + 
+  theme_bw()
 
 
-ggplot(gdp, aes(x = Date, y = Value)) + 
+
+```
+
+# Inflation
+
+```{r plot_inflation}
+
+ggplot(data_list$inflation %>% 
+  reduce(full_join, by = "Date") %>% 
+  gather(key = Category,value = Inflation, -Date) %>%
+  filter(Date >= as.Date("1999-12-31")),
+  aes(x = Date, y = Inflation)) + 
   geom_line() + 
-  labs(x = "", y = "USD (2010)", title = "Iceland's GDP per capita") + 
-  theme_bw() + 
-  theme(plot.title = element_text(hjust = 0.5),
-        axis.text.x = element_text(angle = 90))
+  facet_wrap(~Category,scales = "free") + 
+  theme_bw()
 
+
+
+```
+
+#Interest rates
+
+```{r plot_interest}
+
+ggplot(data_list$interest %>% 
+  reduce(full_join, by = "Date") %>% 
+  gather(key = Category,value = Interest, -Date),
+  aes(x = Date, y = Interest)) + 
+  geom_line() + 
+  facet_wrap(~Category,scales = "free") + 
+  theme_bw()
+
+
+
+```
+
+# Exchange rates
+
+```{r plot_exchange}
+
+ggplot(data_list$exchange %>% 
+  reduce(full_join, by = "Date") %>% 
+  gather(key = Category,value = FX, -Date),
+  aes(x = Date, y = FX)) + 
+  geom_line() + 
+  facet_wrap(~Category,scales = "free") + 
+  theme_bw()
 
 
 
