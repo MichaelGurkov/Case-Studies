@@ -1,0 +1,141 @@
+
+```{r load_libraries}
+
+library(tidyverse)
+
+library(xts)
+
+```
+
+
+```{r param_setup}
+
+oecd_codes = read_csv(paste0(
+  "C:\\Users\\Misha\\OneDrive - Bank Of",
+  " Israel\\Data\\OECD\\Country_Codes.csv")) %>% 
+  filter(OECD_member == 1) %>% 
+  mutate(Country = str_replace(Country,"Slovak Republic","Slovakia"))
+
+theme_set(theme_bw())
+
+```
+
+
+```{r import_bis_data}
+
+raw_data = list()
+
+raw_data$cpi_df = read_csv(
+  paste0(file.path(Sys.getenv("USERPROFILE")),
+         "\\OneDrive - Bank Of Israel",                         "\\Data\\BIS\\WEBSTATS_LONG_CPI_DATAFLOW_csv_col.csv"))
+
+raw_data$fx_df = read_csv(
+  paste0(file.path(Sys.getenv("USERPROFILE")),
+         "\\OneDrive - Bank Of Israel",                         "\\Data\\BIS\\WEBSTATS_XRU_CURRENT_DATAFLOW_csv_col.csv"))
+
+
+inf_df = raw_data$cpi_df %>% 
+  select_at(vars(-contains("-"),
+                 -c("FREQ",
+                   "UNIT_MEASURE",
+                   "REF_AREA",
+                   "Time Period"))) %>% 
+  filter(`Unit of measure` == "Index, 2010 = 100",
+         Frequency == "Annual") %>% 
+  select(-`Unit of measure`,-Frequency) %>% 
+  rename(country = `Reference area`) %>% 
+  pivot_longer(cols = -c("country"),
+               names_to = "year",
+               values_to = "cpi") %>% 
+  filter((!is.na(cpi)) | is.nan(cpi)) %>% 
+  mutate(year = as.numeric(year))
+  
+
+fx_df = raw_data$fx_df %>% 
+  select_at(vars(-contains("-"),
+                 -c("FREQ",
+                   "CURRENCY",
+                   "REF_AREA",
+                   "COLLECTION",
+                   "Time Period",
+                   "Currency"))) %>% 
+  filter(`Collection` == "Average of observations through period",
+         Frequency == "Annual") %>% 
+  select(-Collection,-Frequency) %>% 
+  rename(country = `Reference area`) %>% 
+  filter(country %in% oecd_codes$Country) %>% 
+  pivot_longer(cols = -c("country"),
+               names_to = "year",
+               values_to = "fx")
+
+
+```
+
+
+```{r get_annual_change}
+
+inf_df = inf_df %>% 
+  group_by(country) %>% 
+  arrange(year) %>% 
+  mutate(inf = cpi/lag(cpi) - 1) %>% 
+  ungroup()
+  
+
+fx_df = fx_df %>% 
+  group_by(country) %>% 
+  arrange(year) %>% 
+  mutate(fx_change = fx/lag(fx) - 1) %>% 
+  ungroup()
+
+```
+
+
+```{r check_date_sequantial, eval=FALSE}
+
+df %>% 
+  group_by(country) %>% 
+  arrange(year) %>% 
+  summarise(sd = sd(diff(as.numeric(year))),.groups = "drop") %>% 
+  ggplot(aes(x = reorder(country,sd), y = sd)) + 
+  geom_col() + 
+  coord_flip()
+
+
+
+
+
+```
+
+
+```{r identify_countries_with_high_inf}
+
+inf_df %>% 
+  filter(year > 1950) %>% 
+  mutate(high_inf = inf > 0.2) %>% 
+  ggplot(aes(x = country, y = year, color = high_inf)) + 
+  scale_color_manual(values = c("FALSE" = "gray80",
+                                "TRUE" = "magenta")) + 
+  geom_point() + 
+  coord_flip() + 
+  labs(x = "", y = "", title = "High inflation periods") + 
+  theme(legend.position = "none",
+        axis.text.y = element_text(size = 5))
+```
+
+
+```{r identify_countries_with_unstable_fx}
+
+fx_df %>% 
+  filter(year > 1980) %>% 
+  mutate(unstable_fx = fx_change > 0.15) %>% 
+  ggplot(aes(x = country, y = year, color = unstable_fx)) + 
+  scale_color_manual(values = c("FALSE" = "gray80",
+                                "TRUE" = "magenta")) + 
+  geom_point() + 
+  coord_flip() + 
+  labs(x = "", y = "", title = "Unstable FX periods") + 
+  theme(legend.position = "none",
+        axis.text.y = element_text(size = 5),
+        axis.text.x = element_text(angle = 90))
+```
+

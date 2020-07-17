@@ -1,0 +1,70 @@
+---
+title: "International Economics"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+
+```{r Import_libraries}
+
+library(readxl)
+
+library(tidyverse)
+
+# library(ggimage)
+
+```
+
+
+```{r set_params}
+
+theme_set(theme_bw())
+
+advanced_countries = c(
+  "Switzerland",
+  "Germany",
+  "France",
+  "United Kingdom",
+  "Japan",
+  "United States"
+  )
+
+```
+
+
+
+```{r import_data}
+
+df = read_xlsx(paste0(file.path(Sys.getenv("USERPROFILE"),
+                               fsep = "\\"),
+                     "\\OneDrive - Bank Of Israel",
+                     "\\Data\\Maddison\\mpd2018_1990bm.xlsx"),
+              sheet = 2)
+
+
+```
+
+
+```{r}
+
+df %>% 
+  filter(year >= 1930) %>% 
+  # filter(country %in% advanced_countries) %>%
+  filter(country %in% c("Switzerland","United States")) %>% 
+  group_by(country) %>% 
+  arrange(year) %>% 
+  mutate(change = gdppc / lag(gdppc) - 1) %>% 
+  ungroup() %>% 
+  filter(complete.cases(.)) %>% 
+  ggplot(aes(x = year, y = change, fill = country)) + 
+  geom_col(position = "dodge") + 
+  scale_y_continuous(labels = scales::percent_format()) + 
+  scale_fill_viridis_d(option = "plasma",direction = -1) + 
+  labs(x = "", y = "", title = "GDP per capita (real)") + 
+  theme(legend.position = "bottom", legend.title = element_blank())
+  
+
+```
+
