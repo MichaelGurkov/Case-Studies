@@ -1,3 +1,13 @@
+---
+title: Vital Signs
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+
 
 ```{r load_libraries}
 
@@ -25,6 +35,10 @@ theme_set(theme_bw())
 
 raw_data = list()
 
+raw_data$rates_df = read_csv(
+  paste0(file.path(Sys.getenv("USERPROFILE")),
+         "\\OneDrive - Bank Of Israel",                         "\\Data\\BIS\\WEBSTATS_CBPOL_M_DATAFLOW_csv_col.csv"))
+
 raw_data$cpi_df = read_csv(
   paste0(file.path(Sys.getenv("USERPROFILE")),
          "\\OneDrive - Bank Of Israel",                         "\\Data\\BIS\\WEBSTATS_LONG_CPI_DATAFLOW_csv_col.csv"))
@@ -33,6 +47,11 @@ raw_data$fx_df = read_csv(
   paste0(file.path(Sys.getenv("USERPROFILE")),
          "\\OneDrive - Bank Of Israel",                         "\\Data\\BIS\\WEBSTATS_XRU_CURRENT_DATAFLOW_csv_col.csv"))
 
+
+```
+
+
+```{r clean_inf_df}
 
 inf_df = raw_data$cpi_df %>% 
   select_at(vars(-contains("-"),
@@ -49,8 +68,12 @@ inf_df = raw_data$cpi_df %>%
                values_to = "cpi") %>% 
   filter((!is.na(cpi)) | is.nan(cpi)) %>% 
   mutate(year = as.numeric(year))
-  
 
+
+```
+
+
+```{r clean_fx_df}
 fx_df = raw_data$fx_df %>% 
   select_at(vars(-contains("-"),
                  -c("FREQ",
@@ -67,9 +90,46 @@ fx_df = raw_data$fx_df %>%
   pivot_longer(cols = -c("country"),
                names_to = "year",
                values_to = "fx")
+```
 
+
+```{r clean_rates_df}
+
+rates_df = raw_data$rates_df %>% 
+  select(-FREQ,-REF_AREA,-`Time Period`,-Frequency) %>% 
+  rename(country = `Reference area`) %>% 
+  pivot_longer(-country, names_to = "date",
+               values_to = "policy_rate") %>% 
+  filter(complete.cases(.)) %>% 
+  mutate(date = as.yearmon(date)) %>% 
+  mutate(country = str_replace_all(country,"\\s","_"))
 
 ```
+
+
+# EDA
+
+```{r plot_rates}
+
+rates_df %>% 
+  filter(country == "Israel") %>% 
+  ggplot(aes(x = date, y = policy_rate)) + 
+  geom_line() + 
+  scale_y_continuous(labels = scales::percent_format(scale = 1,
+                                                     accuracy = 1)) + 
+  labs(x = "", y = "", title = "Israel's central bank policy rate")
+
+rates_df %>% 
+  filter(country == "United_States") %>% 
+  ggplot(aes(x = date, y = policy_rate)) + 
+  geom_line() + 
+  scale_y_continuous(labels = scales::percent_format(scale = 1,
+                                                     accuracy = 1)) + 
+  labs(x = "", y = "", title = "USA's central bank policy rate")
+
+```
+
+
 
 
 ```{r get_annual_change}
