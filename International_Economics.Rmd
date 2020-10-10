@@ -20,7 +20,8 @@ library(tidyverse)
 
 ```{r set_params}
 
-theme_set(theme_bw())
+theme_set(theme_bw() + theme(legend.position = "bottom",
+                             legend.title = element_blank()))
 
 advanced_countries = c(
   "Switzerland",
@@ -37,19 +38,29 @@ advanced_countries = c(
 
 ```{r import_data}
 
-df = read_xlsx(paste0(file.path(Sys.getenv("USERPROFILE"),
+maddison_df = read_xlsx(paste0(file.path(Sys.getenv("USERPROFILE"),
                                fsep = "\\"),
                      "\\OneDrive - Bank Of Israel",
                      "\\Data\\Maddison\\mpd2018_1990bm.xlsx"),
               sheet = 2)
 
+jorda_df = read_xlsx(paste0(file.path(Sys.getenv("USERPROFILE"),
+                               fsep = "\\"),
+                     "\\OneDrive - Bank Of Israel",
+                     "\\Data\\MacroHistory\\JSTdatasetR4.xlsx"),
+              sheet = "Data") %>% 
+  rename(narrow_money = narrowm,
+         broad_money = money)
+
 
 ```
 
+# GDP
 
-```{r}
 
-df %>% 
+```{r plot_gdp_growth}
+
+maddison_df %>% 
   filter(year >= 1930) %>% 
   # filter(country %in% advanced_countries) %>%
   filter(country %in% c("Switzerland","United States")) %>% 
@@ -65,6 +76,37 @@ df %>%
   labs(x = "", y = "", title = "GDP per capita (real)") + 
   theme(legend.position = "bottom", legend.title = element_blank())
   
+
+```
+
+
+
+# Money
+
+```{r usa_money_base}
+
+jorda_df %>% 
+  filter(country == "USA") %>% 
+  select(year, narrow_money, broad_money) %>% 
+  pivot_longer(-year) %>% 
+  ggplot(aes(x = year, y = value, color = name)) + 
+  geom_line() + 
+  xlab(NULL) + ylab(NULL) + ggtitle("Money base in USA") + 
+  scale_y_continuous(labels = scales::number_format(big.mark = ",")) + 
+  scale_color_manual(values = c("narrow_money" = "black",
+                                "broad_money" = "blue"))
+
+```
+
+
+```{r }
+
+jorda_df %>% 
+  select(year,country, narrow_money, broad_money) %>% 
+  mutate(money_ratio = broad_money / narrow_money) %>% 
+  ggplot(aes(x = year, y = money_ratio, color = country)) + 
+  geom_line() + 
+  xlab(NULL) + ylab(NULL) + ggtitle("Money base in USA")
 
 ```
 
